@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>JIT-Hub | 대시보드</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; display: flex; flex-direction: column; min-height: 100vh; }
+    nav { background: #1a1a2e; padding: 16px 32px; display: flex; align-items: center; gap: 24px; }
+    nav .logo { color: #fff; font-size: 20px; font-weight: 700; }
+    nav a { color: #aaa; text-decoration: none; font-size: 14px; }
+    nav a:hover { color: #fff; }
+    nav .active { color: #fff; font-weight: 600; border-bottom: 2px solid #4a90e2; padding-bottom: 2px; }
+    nav .logout { margin-left: auto; color: #aaa; cursor: pointer; font-size: 14px; }
+    nav .logout:hover { color: #fff; }
+    .container { max-width: 900px; margin: 40px auto; width: 100%; padding: 0 20px; }
+    .container h2 { font-size: 22px; color: #1a1a2e; margin-bottom: 24px; }
+    .card { background: #fff; border-radius: 12px; padding: 28px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+    table { width: 100%; border-collapse: collapse; font-size: 14px; }
+    th { text-align: left; padding: 12px 16px; background: #f8f9fa; color: #555; border-bottom: 1px solid #eee; }
+    td { padding: 14px 16px; border-bottom: 1px solid #f0f0f0; color: #333; }
+    .badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; }
+    .badge.active { background: #e8f5e9; color: #27ae60; }
+    .badge.inactive { background: #fce4ec; color: #e74c3c; }
+    .btn-del { background: none; border: 1px solid #e74c3c; color: #e74c3c; padding: 4px 12px; border-radius: 6px; cursor: pointer; font-size: 12px; }
+    .btn-del:hover { background: #fce4ec; }
+    .empty { text-align: center; color: #aaa; padding: 40px; }
+  </style>
+</head>
+<body>
+  <nav>
+    <span class="logo">JIT-Hub</span>
+    <a href="/static/api-usage.html">API 사용</a>
+    <a href="/static/dashboard.html" class="active">대시보드</a>
+    <a href="/static/mypage.html">내정보</a>
+    <span class="logout" onclick="logout()">로그아웃</span>
+  </nav>
+  <div class="container">
+    <h2>나의 API Key 현황</h2>
+    <div class="card">
+      <table>
+        <thead>
+          <tr>
+            <th>키 번호</th>
+            <th>키 이름</th>
+            <th>API Key</th>
+            <th>상태</th>
+            <th>생성일</th>
+            <th>관리</th>
+          </tr>
+        </thead>
+        <tbody id="key-table">
+          <tr><td colspan="6" class="empty">로딩 중...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const token = localStorage.getItem('token');
+    if (!token) window.location.href = '/static/login.html';
+
+    async function loadKeys() {
+      const res = await fetch(`/auth/apikey?token=${token}`);
+      const keys = await res.json();
+      const tbody = document.getElementById('key-table');
+
+      if (!keys.length) {
+        tbody.innerHTML = '<tr><td colspan="6" class="empty">발급된 API Key가 없습니다.</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = keys.map(k => `
+        <tr>
+          <td>${k.id}</td>
+          <td>${k.key_name}</td>
+          <td><code>${k.key}</code></td>
+          <td><span class="badge ${k.status === '[활성]' ? 'active' : 'inactive'}">${k.status}</span></td>
+          <td>${new Date(k.created_at).toLocaleDateString('ko-KR')}</td>
+          <td><button class="btn-del" onclick="deleteKey(${k.id})">비활성화</button></td>
+        </tr>
+      `).join('');
+    }
+
+    async function deleteKey(id) {
+      if (!confirm('API Key를 비활성화하시겠습니까?')) return;
+      await fetch(`/auth/apikey/${id}?token=${token}`, { method: 'DELETE' });
+      loadKeys();
+    }
+
+    function logout() {
+      localStorage.removeItem('token');
+      window.location.href = '/static/login.html';
+    }
+
+    loadKeys();
+  </script>
+</body>
+</html>

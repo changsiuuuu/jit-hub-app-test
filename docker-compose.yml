@@ -1,0 +1,172 @@
+# ──────────────────────────────────────────────────────────
+# [로컬 개발 전용] MSA 구조 - 서비스별 독립 DB
+#
+# 실제 테스트 및 DR 시나리오 검증은 AWS EKS 환경에서 진행
+#   GitHub Push
+#     → GitHub Actions (이미지 빌드 → Harbor 푸시)
+#     → ArgoCD (EKS 멀티클러스터 자동 배포)
+#     → Cloudflare (트래픽 라우팅 및 DR 전환)
+# ──────────────────────────────────────────────────────────
+
+services:
+
+  # ── Databases ────────────────────────────────────────────
+  auth-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: auth_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - auth_db_data:/var/lib/postgresql/data
+    networks:
+      - jithub-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  weather-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: weather_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - weather_db_data:/var/lib/postgresql/data
+    networks:
+      - jithub-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  traffic-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: traffic_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5434:5432"
+    volumes:
+      - traffic_db_data:/var/lib/postgresql/data
+    networks:
+      - jithub-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  tourist-db:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: tourist_db
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5435:5432"
+    volumes:
+      - tourist_db_data:/var/lib/postgresql/data
+    networks:
+      - jithub-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # ── Services ─────────────────────────────────────────────
+  auth-service:
+    build:
+      context: .
+      dockerfile: services/auth/Dockerfile
+    environment:
+      JITHUB_LOCATION: LOCAL-DEV
+      JITHUB_DATABASE_URL: postgresql://postgres:postgres@auth-db:5432/auth_db
+    depends_on:
+      auth-db:
+        condition: service_healthy
+    networks:
+      - jithub-net
+
+  weather-service:
+    build:
+      context: .
+      dockerfile: services/weather/Dockerfile
+    environment:
+      JITHUB_LOCATION: LOCAL-DEV
+      JITHUB_DATABASE_URL: postgresql://postgres:postgres@weather-db:5432/weather_db
+      JITHUB_AUTH_SERVICE_URL: http://auth-service:8001
+    depends_on:
+      weather-db:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+    networks:
+      - jithub-net
+
+  traffic-service:
+    build:
+      context: .
+      dockerfile: services/traffic/Dockerfile
+    environment:
+      JITHUB_LOCATION: LOCAL-DEV
+      JITHUB_DATABASE_URL: postgresql://postgres:postgres@traffic-db:5432/traffic_db
+      JITHUB_AUTH_SERVICE_URL: http://auth-service:8001
+    depends_on:
+      traffic-db:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+    networks:
+      - jithub-net
+
+  tourist-service:
+    build:
+      context: .
+      dockerfile: services/tourist/Dockerfile
+    environment:
+      JITHUB_LOCATION: LOCAL-DEV
+      JITHUB_DATABASE_URL: postgresql://postgres:postgres@tourist-db:5432/tourist_db
+      JITHUB_AUTH_SERVICE_URL: http://auth-service:8001
+    depends_on:
+      tourist-db:
+        condition: service_healthy
+      auth-service:
+        condition: service_started
+    networks:
+      - jithub-net
+
+  # ── Gateway (Nginx) ───────────────────────────────────────
+  gateway:
+    image: nginx:alpine
+    ports:
+      - "8000:80"
+    volumes:
+      - ./gateway/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./static:/usr/share/nginx/html/static:ro
+    depends_on:
+      - auth-service
+      - weather-service
+      - traffic-service
+      - tourist-service
+    networks:
+      - jithub-net
+
+volumes:
+  auth_db_data:
+  weather_db_data:
+  traffic_db_data:
+  tourist_db_data:
+
+networks:
+  jithub-net:
+    driver: bridge
