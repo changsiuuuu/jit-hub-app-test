@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>JIT-Hub | 내정보</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; display: flex; flex-direction: column; min-height: 100vh; }
+    nav { background: #1a1a2e; padding: 16px 32px; display: flex; align-items: center; gap: 24px; }
+    nav .logo { color: #fff; font-size: 20px; font-weight: 700; }
+    nav a { color: #aaa; text-decoration: none; font-size: 14px; }
+    nav a:hover { color: #fff; }
+    nav .active { color: #fff; font-weight: 600; border-bottom: 2px solid #4a90e2; padding-bottom: 2px; }
+    nav .logout { margin-left: auto; color: #aaa; cursor: pointer; font-size: 14px; }
+    nav .logout:hover { color: #fff; }
+    .container { max-width: 600px; margin: 40px auto; width: 100%; padding: 0 20px; }
+    .card { background: #fff; border-radius: 12px; padding: 28px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); }
+    .card h2 { font-size: 20px; color: #1a1a2e; margin-bottom: 24px; }
+    .info-row { display: flex; padding: 14px 0; border-bottom: 1px solid #f0f0f0; font-size: 14px; }
+    .info-row:last-child { border-bottom: none; }
+    .info-label { color: #888; width: 120px; flex-shrink: 0; }
+    .info-value { color: #333; font-weight: 500; }
+  </style>
+</head>
+<body>
+  <nav>
+    <span class="logo">JIT-Hub</span>
+    <a href="/static/api-usage.html">API 사용</a>
+    <a href="/static/dashboard.html">대시보드</a>
+    <a href="/static/mypage.html" class="active">내정보</a>
+    <span class="logout" onclick="logout()">로그아웃</span>
+  </nav>
+  <div class="container">
+    <div class="card">
+      <h2>내정보</h2>
+      <div class="info-row">
+        <span class="info-label">이름</span>
+        <span class="info-value" id="user-name">-</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">이메일</span>
+        <span class="info-value" id="user-email">-</span>
+      </div>
+      <div class="info-row">
+        <span class="info-label">가입일</span>
+        <span class="info-value" id="user-created">-</span>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const token = localStorage.getItem('token');
+    if (!token) window.location.href = '/static/login.html';
+
+    async function loadMe() {
+      const res = await fetch(`/auth/me?token=${token}`);
+      if (!res.ok) { window.location.href = '/static/login.html'; return; }
+      const data = await res.json();
+      document.getElementById('user-name').textContent = data.name;
+      document.getElementById('user-email').textContent = data.email;
+      document.getElementById('user-created').textContent = new Date(data.created_at).toLocaleDateString('ko-KR');
+    }
+
+    function logout() {
+      localStorage.removeItem('token');
+      window.location.href = '/static/login.html';
+    }
+
+    loadMe();
+  </script>
+</body>
+</html>

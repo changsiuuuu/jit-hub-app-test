@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <title>JIT-Hub | API 사용</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: 'Segoe UI', sans-serif; background: #f0f2f5; display: flex; flex-direction: column; min-height: 100vh; }
+    nav { background: #1a1a2e; padding: 16px 32px; display: flex; align-items: center; gap: 24px; }
+    nav .logo { color: #fff; font-size: 20px; font-weight: 700; }
+    nav a { color: #aaa; text-decoration: none; font-size: 14px; }
+    nav a:hover { color: #fff; }
+    nav .active { color: #fff; font-weight: 600; border-bottom: 2px solid #4a90e2; padding-bottom: 2px; }
+    nav .logout { margin-left: auto; color: #aaa; cursor: pointer; font-size: 14px; }
+    nav .logout:hover { color: #fff; }
+
+    .container { max-width: 960px; margin: 40px auto; width: 100%; padding: 0 20px; display: flex; gap: 24px; }
+
+    /* 사이드바 */
+    .sidebar { width: 200px; flex-shrink: 0; }
+    .sidebar-group { margin-bottom: 8px; }
+    .sidebar-title { padding: 10px 14px; font-size: 13px; color: #888; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .sidebar-item { padding: 10px 14px; border-radius: 8px; cursor: pointer; font-size: 14px; color: #444; display: flex; align-items: center; gap: 8px; }
+    .sidebar-item:hover { background: #e8eaf6; color: #1a1a2e; }
+    .sidebar-item.active { background: #1a1a2e; color: #fff; font-weight: 600; }
+    .sidebar-sub { padding: 8px 14px 8px 32px; border-radius: 8px; cursor: pointer; font-size: 13px; color: #666; }
+    .sidebar-sub:hover { background: #f0f2f5; color: #1a1a2e; }
+    .sidebar-sub.active { color: #4a90e2; font-weight: 600; }
+
+    /* 콘텐츠 */
+    .content { flex: 1; }
+    .section { display: none; }
+    .section.active { display: block; }
+    .card { background: #fff; border-radius: 12px; padding: 28px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); margin-bottom: 20px; }
+
+    /* API 정보 헤더 */
+    .api-header { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+    .api-badge { background: #e3f2fd; color: #1565c0; padding: 4px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; }
+    .api-header h3 { font-size: 18px; color: #1a1a2e; }
+    .api-desc { font-size: 14px; color: #666; line-height: 1.6; margin-bottom: 20px; }
+    .api-endpoint { background: #f8f9fa; border-left: 3px solid #4a90e2; padding: 12px 16px; border-radius: 0 8px 8px 0; font-family: monospace; font-size: 13px; color: #333; margin-bottom: 20px; }
+
+    /* 파라미터 테이블 */
+    .param-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-bottom: 20px; }
+    .param-table th { text-align: left; padding: 10px 12px; background: #f8f9fa; color: #555; border-bottom: 1px solid #eee; }
+    .param-table td { padding: 10px 12px; border-bottom: 1px solid #f5f5f5; color: #333; }
+    .required { color: #e74c3c; font-size: 11px; font-weight: 600; }
+
+    /* API Key 발급 */
+    .key-issue-box { background: #f0f7ff; border: 1px solid #b3d9ff; border-radius: 10px; padding: 20px; margin-bottom: 20px; }
+    .key-issue-box h4 { font-size: 14px; color: #1565c0; margin-bottom: 12px; }
+    .issued-key-display { font-family: monospace; font-size: 13px; background: #fff; border: 1px solid #cce0ff; padding: 10px 14px; border-radius: 8px; margin: 10px 0; color: #1a1a2e; word-break: break-all; }
+
+    /* 테스트 폼 */
+    .test-form { border-top: 1px dashed #eee; padding-top: 20px; }
+    .test-form h4 { font-size: 14px; color: #333; margin-bottom: 14px; }
+    .form-row { display: flex; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+    .form-group { display: flex; flex-direction: column; gap: 4px; flex: 1; min-width: 160px; }
+    label { font-size: 12px; color: #777; }
+    input, select { padding: 10px 12px; border: 1px solid #ddd; border-radius: 8px; font-size: 14px; width: 100%; }
+    input:focus, select:focus { outline: none; border-color: #4a90e2; }
+
+    /* 버튼 */
+    .btn { padding: 10px 24px; background: #1a1a2e; color: #fff; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; }
+    .btn:hover { background: #2d2d5e; }
+    .btn-sm { padding: 8px 16px; font-size: 13px; }
+    .btn-outline { background: none; border: 1px solid #1a1a2e; color: #1a1a2e; }
+    .btn-outline:hover { background: #1a1a2e; color: #fff; }
+
+    /* 결과창 */
+    .result-box { background: #1a1a2e; color: #a8ff78; border-radius: 8px; padding: 16px; font-family: monospace; font-size: 13px; min-height: 80px; white-space: pre-wrap; margin-top: 16px; display: none; }
+    .result-box.error { color: #ff6b6b; }
+
+    /* served_by 배지 */
+    .served-badge { display: inline-block; padding: 3px 10px; border-radius: 12px; font-size: 12px; font-weight: 600; }
+    .aws-a { background: #fff3e0; color: #e65100; }
+    .onpremise { background: #e8f5e9; color: #2e7d32; }
+    .aws-b { background: #e3f2fd; color: #1565c0; }
+  </style>
+</head>
+<body>
+  <nav>
+    <span class="logo">JIT-Hub</span>
+    <a href="/static/api-usage.html" class="active">API 사용</a>
+    <a href="/static/dashboard.html">대시보드</a>
+    <a href="/static/mypage.html">내정보</a>
+    <span class="logout" onclick="logout()">로그아웃</span>
+  </nav>
+
+  <div class="container">
+    <!-- 사이드바 -->
+    <div class="sidebar">
+      <div class="sidebar-group">
+        <div class="sidebar-title">API 목록</div>
+        <div class="sidebar-item active" id="nav-weather" onclick="showSection('weather')">
+          🌤 1번 API - 날씨
+        </div>
+        <div class="sidebar-item" id="nav-traffic" onclick="showSection('traffic')">
+          🚌 2번 API - 교통
+        </div>
+        <div class="sidebar-item" id="nav-tourist" onclick="showSection('tourist')">
+          🗺 3번 API - 관광지
+        </div>
+      </div>
+    </div>
+
+    <!-- 콘텐츠 -->
+    <div class="content">
+
+      <!-- 1번 API: 날씨 -->
+      <div id="section-weather" class="section active">
+
+        <!-- API 소개 -->
+        <div class="card">
+          <div class="api-header">
+            <span class="api-badge">GET</span>
+            <h3>날씨 정보 API</h3>
+          </div>
+          <p class="api-desc">
+            지역 코드와 날짜 범위를 입력하면 해당 기간의 날씨 정보(최고/최저기온, 습도, 강수량, 날씨상태)를 반환합니다.
+          </p>
+          <div class="api-endpoint">GET /api/v1/weather?api_key={key}&region={코드}&start_date={YYYY-MM-DD}&end_date={YYYY-MM-DD}</div>
+
+          <!-- 파라미터 설명 -->
+          <table class="param-table">
+            <thead>
+              <tr>
+                <th>파라미터</th>
+                <th>타입</th>
+                <th>필수</th>
+                <th>설명</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>api_key</code></td>
+                <td>string</td>
+                <td><span class="required">필수</span></td>
+                <td>발급받은 API Key</td>
+              </tr>
+              <tr>
+                <td><code>region</code></td>
+                <td>string</td>
+                <td><span class="required">필수</span></td>
+                <td>지역 코드 (11=서울, 21=부산, 22=대구, 23=인천, 24=광주, 25=대전, 39=제주)</td>
+              </tr>
+              <tr>
+                <td><code>start_date</code></td>
+                <td>date</td>
+                <td><span class="required">필수</span></td>
+                <td>조회 시작일 (YYYY-MM-DD)</td>
+              </tr>
+              <tr>
+                <td><code>end_date</code></td>
+                <td>date</td>
+                <td><span class="required">필수</span></td>
+                <td>조회 종료일 (YYYY-MM-DD)</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <!-- API Key 발급 -->
+        <div class="card">
+          <div class="key-issue-box">
+            <h4>API Key 발급</h4>
+            <p style="font-size:13px; color:#555; margin-bottom:12px;">날씨 API를 사용하려면 API Key가 필요합니다.</p>
+            <button class="btn btn-sm" onclick="issueWeatherKey()">API Key 발급 받기</button>
+            <div id="issued-key-area" style="display:none;">
+              <div class="issued-key-display" id="issued-key-value"></div>
+              <button class="btn btn-sm btn-outline" onclick="copyKey('issued-key-value')">복사</button>
+            </div>
+          </div>
+
+          <!-- 테스트 폼 -->
+          <div class="test-form">
+            <h4>API 테스트</h4>
+            <div class="form-row">
+              <div class="form-group">
+                <label>API Key</label>
+                <input type="text" id="weather-api-key" placeholder="발급받은 API Key 입력">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>지역 코드</label>
+                <select id="weather-region">
+                  <option value="11">11 - 서울</option>
+                  <option value="21">21 - 부산</option>
+                  <option value="22">22 - 대구</option>
+                  <option value="23">23 - 인천</option>
+                  <option value="24">24 - 광주</option>
+                  <option value="25">25 - 대전</option>
+                  <option value="39">39 - 제주</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>시작일</label>
+                <input type="date" id="weather-start" value="2026-01-01">
+              </div>
+              <div class="form-group">
+                <label>종료일</label>
+                <input type="date" id="weather-end" value="2026-01-07">
+              </div>
+            </div>
+            <button class="btn" onclick="testWeatherApi()">테스트 실행</button>
+            <div id="weather-result" class="result-box"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 2번 API: 교통 -->
+      <div id="section-traffic" class="section">
+        <div class="card">
+          <div class="api-header">
+            <span class="api-badge" style="background:#e8f5e9; color:#2e7d32;">GET</span>
+            <h3>교통 정보 API</h3>
+          </div>
+          <p class="api-desc">지역 코드와 교통 유형(버스/지하철)을 입력하면 해당 지역의 노선 정보와 실시간 혼잡도를 반환합니다.</p>
+          <div class="api-endpoint">GET /api/v2/traffic?api_key={key}&region={코드}&type=bus|subway</div>
+          <table class="param-table">
+            <thead><tr><th>파라미터</th><th>타입</th><th>필수</th><th>설명</th></tr></thead>
+            <tbody>
+              <tr><td><code>api_key</code></td><td>string</td><td><span class="required">필수</span></td><td>발급받은 API Key</td></tr>
+              <tr><td><code>region</code></td><td>string</td><td><span class="required">필수</span></td><td>지역 코드 (11=서울, 21=부산, 22=대구, 23=인천, 25=대전, 39=제주)</td></tr>
+              <tr><td><code>type</code></td><td>string</td><td><span class="required">필수</span></td><td>교통 유형: bus / subway</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card">
+          <div class="key-issue-box">
+            <h4>API Key 발급</h4>
+            <p style="font-size:13px; color:#555; margin-bottom:12px;">교통 API를 사용하려면 API Key가 필요합니다.</p>
+            <button class="btn btn-sm" onclick="issueKey('traffic', 'traffic-issued-key', 'traffic-api-key')">API Key 발급 받기</button>
+            <div id="traffic-issued-key" style="display:none;">
+              <div class="issued-key-display" id="traffic-key-value"></div>
+              <button class="btn btn-sm btn-outline" onclick="copyKey('traffic-key-value')">복사</button>
+            </div>
+          </div>
+          <div class="test-form">
+            <h4>API 테스트</h4>
+            <div class="form-row">
+              <div class="form-group">
+                <label>API Key</label>
+                <input type="text" id="traffic-api-key" placeholder="발급받은 API Key 입력">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>지역 코드</label>
+                <select id="traffic-region">
+                  <option value="11">11 - 서울</option>
+                  <option value="21">21 - 부산</option>
+                  <option value="22">22 - 대구</option>
+                  <option value="23">23 - 인천</option>
+                  <option value="39">39 - 제주</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>교통 유형</label>
+                <select id="traffic-type">
+                  <option value="bus">버스</option>
+                  <option value="subway">지하철</option>
+                </select>
+              </div>
+            </div>
+            <button class="btn" onclick="testTrafficApi()">테스트 실행</button>
+            <div id="traffic-result" class="result-box"></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- 3번 API: 관광지 -->
+      <div id="section-tourist" class="section">
+        <div class="card">
+          <div class="api-header">
+            <span class="api-badge" style="background:#fce4ec; color:#880e4f;">GET</span>
+            <h3>관광지 정보 API</h3>
+          </div>
+          <p class="api-desc">지역 코드로 관광지 목록을 조회하거나, 관광지 ID로 위치·이미지·입장료·성수기/비성수기 등 상세 정보를 제공합니다.</p>
+          <div class="api-endpoint">GET /api/v3/tourist?api_key={key}&region={코드}&category={카테고리}</div>
+          <table class="param-table">
+            <thead><tr><th>파라미터</th><th>타입</th><th>필수</th><th>설명</th></tr></thead>
+            <tbody>
+              <tr><td><code>api_key</code></td><td>string</td><td><span class="required">필수</span></td><td>발급받은 API Key</td></tr>
+              <tr><td><code>region</code></td><td>string</td><td>선택</td><td>지역 코드 (미입력 시 전체 조회)</td></tr>
+              <tr><td><code>category</code></td><td>string</td><td>선택</td><td>카테고리: 자연 / 문화 / 역사 / 테마파크</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="card">
+          <div class="key-issue-box">
+            <h4>API Key 발급</h4>
+            <p style="font-size:13px; color:#555; margin-bottom:12px;">관광지 API를 사용하려면 API Key가 필요합니다.</p>
+            <button class="btn btn-sm" onclick="issueKey('tourist', 'tourist-issued-key', 'tourist-api-key')">API Key 발급 받기</button>
+            <div id="tourist-issued-key" style="display:none;">
+              <div class="issued-key-display" id="tourist-key-value"></div>
+              <button class="btn btn-sm btn-outline" onclick="copyKey('tourist-key-value')">복사</button>
+            </div>
+          </div>
+          <div class="test-form">
+            <h4>API 테스트</h4>
+            <div class="form-row">
+              <div class="form-group">
+                <label>API Key</label>
+                <input type="text" id="tourist-api-key" placeholder="발급받은 API Key 입력">
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label>지역 코드 (선택)</label>
+                <select id="tourist-region">
+                  <option value="">전체</option>
+                  <option value="11">11 - 서울</option>
+                  <option value="21">21 - 부산</option>
+                  <option value="32">32 - 강원</option>
+                  <option value="37">37 - 경북</option>
+                  <option value="39">39 - 제주</option>
+                </select>
+              </div>
+              <div class="form-group">
+                <label>카테고리 (선택)</label>
+                <select id="tourist-category">
+                  <option value="">전체</option>
+                  <option value="자연">자연</option>
+                  <option value="문화">문화</option>
+                  <option value="역사">역사</option>
+                  <option value="테마파크">테마파크</option>
+                </select>
+              </div>
+            </div>
+            <button class="btn" onclick="testTouristApi()">테스트 실행</button>
+            <div id="tourist-result" class="result-box"></div>
+            <!-- 이미지 미리보기 -->
+            <div id="tourist-images" style="display:none; margin-top:16px;">
+              <p style="font-size:13px; color:#555; margin-bottom:10px;">관광지 이미지 미리보기</p>
+              <div id="image-grid" style="display:grid; grid-template-columns: repeat(3,1fr); gap:10px;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <script>
+    const token = localStorage.getItem('token');
+    if (!token) window.location.href = '/static/login.html';
+
+    function showSection(name) {
+      document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
+      document.querySelectorAll('.sidebar-item').forEach(s => s.classList.remove('active'));
+      document.getElementById(`section-${name}`).classList.add('active');
+      document.getElementById(`nav-${name}`).classList.add('active');
+    }
+
+    async function issueWeatherKey() {
+      const res = await fetch(`/auth/apikey?token=${token}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key_name: '날씨 API Key', api_type: 'weather' })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        document.getElementById('issued-key-area').style.display = 'block';
+        document.getElementById('issued-key-value').textContent = data.key;
+        document.getElementById('weather-api-key').value = data.key;
+      } else {
+        alert('API Key 발급에 실패했습니다.');
+      }
+    }
+
+    function copyKey() {
+      const key = document.getElementById('issued-key-value').textContent;
+      navigator.clipboard.writeText(key);
+      alert('복사되었습니다.');
+    }
+
+    async function testWeatherApi() {
+      const apiKey = document.getElementById('weather-api-key').value.trim();
+      const region = document.getElementById('weather-region').value;
+      const startDate = document.getElementById('weather-start').value;
+      const endDate = document.getElementById('weather-end').value;
+      const resultBox = document.getElementById('weather-result');
+
+      if (!apiKey) { alert('API Key를 입력해주세요.'); return; }
+      if (!startDate || !endDate) { alert('날짜를 입력해주세요.'); return; }
+
+      resultBox.style.display = 'block';
+      resultBox.className = 'result-box';
+      resultBox.textContent = '요청 중...';
+
+      const url = `/api/v1/weather?api_key=${apiKey}&region=${region}&start_date=${startDate}&end_date=${endDate}`;
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (res.ok) {
+        resultBox.textContent = JSON.stringify(data, null, 2);
+      } else {
+        resultBox.classList.add('error');
+        resultBox.textContent = JSON.stringify(data, null, 2);
+      }
+    }
+
+    // 교통·관광지 공용 API Key 발급
+    async function issueKey(apiType, areaId, inputId) {
+      const nameMap = { traffic: '교통 API Key', tourist: '관광지 API Key' };
+      const res = await fetch(`/auth/apikey?token=${token}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ key_name: nameMap[apiType], api_type: apiType })
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        document.getElementById(areaId).style.display = 'block';
+        document.getElementById(`${apiType}-key-value`).textContent = data.key;
+        document.getElementById(inputId).value = data.key;
+      } else {
+        alert('API Key 발급에 실패했습니다.');
+      }
+    }
+
+    // 교통 API 테스트
+    async function testTrafficApi() {
+      const apiKey = document.getElementById('traffic-api-key').value.trim();
+      const region = document.getElementById('traffic-region').value;
+      const type = document.getElementById('traffic-type').value;
+      const resultBox = document.getElementById('traffic-result');
+
+      if (!apiKey) { alert('API Key를 입력해주세요.'); return; }
+
+      resultBox.style.display = 'block';
+      resultBox.className = 'result-box';
+      resultBox.textContent = '요청 중...';
+
+      const url = `/api/v2/traffic?api_key=${apiKey}&region=${region}&type=${type}`;
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (res.ok) {
+        resultBox.textContent = JSON.stringify(data, null, 2);
+      } else {
+        resultBox.classList.add('error');
+        resultBox.textContent = JSON.stringify(data, null, 2);
+      }
+    }
+
+    // 관광지 API 테스트
+    async function testTouristApi() {
+      const apiKey = document.getElementById('tourist-api-key').value.trim();
+      const region = document.getElementById('tourist-region').value;
+      const category = document.getElementById('tourist-category').value;
+      const resultBox = document.getElementById('tourist-result');
+      const imagesDiv = document.getElementById('tourist-images');
+      const imageGrid = document.getElementById('image-grid');
+
+      if (!apiKey) { alert('API Key를 입력해주세요.'); return; }
+
+      resultBox.style.display = 'block';
+      resultBox.className = 'result-box';
+      resultBox.textContent = '요청 중...';
+      imagesDiv.style.display = 'none';
+      imageGrid.innerHTML = '';
+
+      let url = `/api/v3/tourist?api_key=${apiKey}`;
+      if (region) url += `&region=${region}`;
+      if (category) url += `&category=${encodeURIComponent(category)}`;
+
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (res.ok) {
+        resultBox.textContent = JSON.stringify(data, null, 2);
+
+        // 이미지 미리보기
+        const items = data.items || [];
+        const withImages = items.filter(i => i.image_url);
+        if (withImages.length > 0) {
+          imagesDiv.style.display = 'block';
+          withImages.forEach(item => {
+            const div = document.createElement('div');
+            div.style.cssText = 'border-radius:8px; overflow:hidden; background:#f0f2f5;';
+            div.innerHTML = `
+              <img src="${item.image_url}" alt="${item.name}"
+                style="width:100%; height:120px; object-fit:cover;"
+                onerror="this.style.display='none'">
+              <p style="font-size:12px; padding:6px 8px; color:#333; font-weight:600;">${item.name}</p>
+              <p style="font-size:11px; padding:0 8px 6px; color:#888;">${item.category}</p>`;
+            imageGrid.appendChild(div);
+          });
+        }
+      } else {
+        resultBox.classList.add('error');
+        resultBox.textContent = JSON.stringify(data, null, 2);
+      }
+    }
+
+    // 복사 (copyKey는 날씨용 기존 함수와 구분)
+    function copyKey(elementId) {
+      // elementId가 없으면 날씨 키 복사 (하위 호환)
+      const id = elementId || 'issued-key-value';
+      const key = document.getElementById(id).textContent;
+      navigator.clipboard.writeText(key);
+      alert('복사되었습니다.');
+    }
+
+    function logout() {
+      localStorage.removeItem('token');
+      window.location.href = '/static/login.html';
+    }
+  </script>
+</body>
+</html>
